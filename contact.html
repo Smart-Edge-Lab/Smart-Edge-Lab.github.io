@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — GreenShift</title>
+<meta name="description" content="Talk to GreenShift about a pilot, an investment, or anything else.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23081410'/%3E%3Cpath d='M16 5c6 4 9 8.5 9 13a9 9 0 1 1-18 0c0-4.5 3-9 9-13Z' fill='%2334d399'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+
+<header class="nav" lang="en">
+  <div class="nav-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 5c6 4 9 8.5 9 13a9 9 0 1 1-18 0c0-4.5 3-9 9-13Z" fill="#06140e"/></svg>
+      </span>
+      GreenShift
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/product">Product</a>
+      <a href="/team">Team</a>
+      <a href="/pilot-partners">Pilot partners</a>
+      <a href="/contact" aria-current="page">Contact</a>
+    </nav>
+    <a class="nav-cta" href="/contact">Talk to us</a>
+  </div>
+</header>
+
+<main>
+  <section id="contact" class="page-top">
+    <div class="wrap">
+      <div class="kicker">Contact</div>
+      <h1>Let's talk.</h1>
+      <p class="section-lead">Partnership, pilot, or investment conversations — reach out directly and we'll get back to you.</p>
+
+      <form id="contact-form" class="contact-form" action="mailto:dan.stoschek@fh-dortmund.de" method="post" enctype="text/plain">
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" autocomplete="name" maxlength="200" required>
+        </div>
+        <div class="field">
+          <label for="company">Company/Organisation <span class="opt">(optional)</span></label>
+          <input id="company" name="company" type="text" autocomplete="organization" maxlength="200">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+        </div>
+        <div class="field">
+          <label for="interest">I am interested in:</label>
+          <select id="interest" name="interest">
+            <option value="">Please choose</option>
+            <option value="pilot">Pilot</option>
+            <option value="investment">Investment</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" maxlength="4000" required></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">Open in my mail program</button>
+        <p class="form-note">
+          Submitting opens your own mail program with a message to
+          <a href="mailto:dan.stoschek@fh-dortmund.de">dan.stoschek@fh-dortmund.de</a>,
+          filled in from this form. Nothing is sent until you send it from your
+          mail program, and this website does not store what you type. See the
+          <a href="/datenschutz" lang="de">Datenschutzerklärung</a>.
+        </p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer lang="en">
+  <div class="wrap">
+    <span>© 2026 GreenShift. Energy attribution for the datacenter and Kubernetes.</span>
+    <nav class="footer-links" aria-label="Site">
+      <a href="/pilot-partners">Pilot partners</a>
+      <a href="/contact">Contact</a>
+      <a href="/impressum" lang="de">Impressum</a>
+      <a href="/datenschutz" lang="de">Datenschutz</a>
+    </nav>
+  </div>
+</footer>
+<script>
+(function () {
+  "use strict";
+  // The only recipient. User input goes into the subject and body only,
+  // each URL-encoded, so it can never add a recipient or a header.
+  var RECIPIENT = "dan.stoschek@fh-dortmund.de";
+  var INTERESTS = { pilot: "Pilot", investment: "Investment", other: "Other" };
+  var form = document.getElementById("contact-form");
+  var interest = document.getElementById("interest");
+
+  // /contact?interest=pilot|investment|other pre-selects the dropdown;
+  // any other value is ignored.
+  var wanted = new URLSearchParams(window.location.search).get("interest");
+  if (wanted !== null) {
+    wanted = wanted.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(INTERESTS, wanted)) {
+      interest.value = wanted;
+    }
+  }
+
+  function value(id) {
+    return document.getElementById(id).value.trim();
+  }
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    if (!form.reportValidity()) {
+      return;
+    }
+    var topic = INTERESTS[interest.value] || "Not specified";
+    var subject = ("GreenShift enquiry (" + topic + "): " + value("name"))
+      .replace(/[\r\n]+/g, " ");
+    var body = [
+      "Name: " + value("name"),
+      "Company/Organisation: " + value("company"),
+      "Email: " + value("email"),
+      "I am interested in: " + topic,
+      "",
+      value("message")
+    ].join("\n").replace(/\r?\n/g, "\r\n");
+    window.location.href = "mailto:" + RECIPIENT +
+      "?subject=" + encodeURIComponent(subject) +
+      "&body=" + encodeURIComponent(body);
+  });
+})();
+</script>
+</body>
+</html>

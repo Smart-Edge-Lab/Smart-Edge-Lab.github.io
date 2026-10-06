@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pilot partners — GreenShift</title>
+<meta name="description" content="Install GreenShift with Helm: the greenshift-agents chart for customer clusters and the greenshift-core chart for the GreenShift Master, then read your figures through the App Owner Dashboard and API.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23081410'/%3E%3Cpath d='M16 5c6 4 9 8.5 9 13a9 9 0 1 1-18 0c0-4.5 3-9 9-13Z' fill='%2334d399'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+
+<header class="nav" lang="en">
+  <div class="nav-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 5c6 4 9 8.5 9 13a9 9 0 1 1-18 0c0-4.5 3-9 9-13Z" fill="#06140e"/></svg>
+      </span>
+      GreenShift
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/product">Product</a>
+      <a href="/team">Team</a>
+      <a href="/pilot-partners" aria-current="page">Pilot partners</a>
+      <a href="/contact">Contact</a>
+    </nav>
+    <a class="nav-cta" href="/contact">Talk to us</a>
+  </div>
+</header>
+
+<main>
+  <section id="install" class="page-top">
+    <div class="wrap">
+      <div class="kicker">For pilot partners.</div>
+      <h1>Install it with one Helm command.</h1>
+      <p class="section-lead">
+        Both charts are published from this site. <strong>greenshift-agents</strong>
+        goes into each customer cluster; <strong>greenshift-core</strong> runs the
+        GreenShift Master &mdash; the attribution pipeline and its PostgreSQL,
+        Kafka and Redis &mdash; in the operator's own cluster.
+      </p>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">Terminal</span>
+        </div>
+        <pre class="code"><span class="c"># 1. Add the GreenShift chart repository</span>
+helm repo add greenshift https://greenshift-registry.online/charts
+helm repo update
+
+<span class="c"># 2. Install, supplying the registry and MinIO credentials and the</span>
+<span class="c">#    Master connection (described below)</span>
+<span class="c">#    (sent to you through our secure delivery channel)</span>
+helm install greenshift-agents greenshift/greenshift-agents \
+  -n greenshift-system --create-namespace \
+  --set registry.password=<span class="s">"&lt;provided separately&gt;"</span> \
+  --set minio.rootUser=<span class="s">"&lt;choose a value&gt;"</span> \
+  --set minio.rootPassword=<span class="s">"&lt;choose a value&gt;"</span> \
+  --set master.url=<span class="s">"https://gateway.example.com"</span> \
+  --set master.token=<span class="s">"&lt;provided separately&gt;"</span> \
+  --set master.clusterInstanceId=<span class="s">"&lt;provided separately&gt;"</span>
+
+<span class="c"># 3. Verify</span>
+kubectl get pods -n greenshift-system</pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">Connecting a customer cluster to the Master</span>
+        </div>
+        <pre class="code"><span class="c"># The Registration Service in each customer cluster registers the cluster</span>
+<span class="c"># with the GreenShift Master and keeps its node list current there; the</span>
+<span class="c"># Attributor Service pulls the cluster's power back from it.</span>
+
+<span class="c"># master.url &mdash; scheme and host of the Master's public Gateway, no path.</span>
+<span class="c">#   The same value the operator set as global.gatewayPublicUrl. https:// only.</span>
+--set master.url=<span class="s">https://gateway.example.com</span>
+
+<span class="c"># master.token &mdash; this cluster's credential, a bearer token. The operator</span>
+<span class="c">#   puts only its SHA-256 fingerprint in the Master's cluster credential</span>
+<span class="c">#   registry:   printf %s "$TOKEN" | sha256sum</span>
+<span class="c">#   Or keep it in your own Secret (key credential) in greenshift-system:</span>
+<span class="c">#   --set master.existingSecret=&lt;name&gt;</span>
+--set master.token=<span class="s">"&lt;provided separately&gt;"</span>
+
+<span class="c"># master.clusterInstanceId &mdash; the ID the operator provisioned for this</span>
+<span class="c">#   cluster, so the Master recognises it on first registration.</span>
+--set master.clusterInstanceId=<span class="s">"&lt;provided separately&gt;"</span>
+
+<span class="c"># master.ca &mdash; only if the Gateway's certificate comes from a private CA:</span>
+<span class="c">#   that CA (PEM). It is added to the public roots, never replaces them.</span>
+<span class="c">#   Or name a ConfigMap you already have: --set master.caConfigMap=&lt;name&gt;</span>
+<span class="c">#   --set master.caConfigMapKey=&lt;key&gt;</span>
+--set-file master.ca=<span class="s">gateway-ca.crt</span>
+
+<span class="c"># Optional: how the cluster names itself to the Master.</span>
+--set cluster.localName=<span class="s">prod-eu-1</span> --set cluster.environment=<span class="s">production</span> --set cluster.site=<span class="s">dc-1</span>
+
+<span class="c"># Leave master.* out to run without a Master: nodes still register locally</span>
+<span class="c"># and nothing leaves the cluster. A missing or rejected credential never</span>
+<span class="c"># stops a workload; registration is retried. Rotate the token with</span>
+<span class="c"># helm upgrade --reuse-values --set master.token=... (no restart needed).</span></pre>
+      </div>
+
+      <p class="section-lead">
+        <strong>Seeing your figures.</strong> The chart installs the App Owner
+        Dashboard and the App Owner API beside the agents. Neither is published
+        outside your cluster: anyone allowed to port-forward in
+        <code>greenshift-system</code> can open them, and no one else can.
+      </p>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">App Owner Dashboard</span>
+        </div>
+        <pre class="code"><span class="c"># Forward the dashboard to your workstation, then open http://localhost:8090</span>
+kubectl -n greenshift-system port-forward svc/greenshift-dashboard 8090:8090
+
+<span class="c"># Where your cluster's energy goes: the share drawn by your applications, the</span>
+<span class="c"># host overhead, and the idle draw of machines that are powered on but busy</span>
+<span class="c"># with nothing. Pick 24h, 7d or the month; live power refreshes every 10 s,</span>
+<span class="c"># energy every minute. Break it down by machine, namespace, deployment and pod.</span>
+
+<span class="c"># The dashboard calls the API for you, with a token that stays in the cluster</span>
+<span class="c"># (Secret greenshift-dashboard-api-token, generated on install). To choose it:</span>
+<span class="c">#   --set dashboard.apiToken=... or --set dashboard.existingSecret=&lt;name&gt;</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">App Owner API</span>
+        </div>
+        <pre class="code"><span class="c"># The same figures as JSON, for your own reports and tooling. In the cluster</span>
+<span class="c"># it answers at http://greenshift-app-owner-api.greenshift-system:8080; from a</span>
+<span class="c"># workstation, forward it first:</span>
+kubectl -n greenshift-system port-forward svc/greenshift-app-owner-api 8080:8080
+
+<span class="c"># Every /v1 call needs an Authorization: Bearer header. The pilot carries one</span>
+<span class="c"># tenant per cluster and does not check the token yet, but it rejects a call</span>
+<span class="c"># without one.</span>
+curl -H <span class="s">'Authorization: Bearer &lt;token&gt;'</span> http://localhost:8080/v1/namespaces
+
+<span class="c"># Energy over a period. scope: cluster, nodes, namespaces, deployments, pods.</span>
+<span class="c"># period: day, week, month, year (default day), or an explicit window with</span>
+<span class="c"># from= and to= in RFC3339 UTC. namespace= narrows the result.</span>
+GET /v1/energy/{scope}?period=week
+GET /v1/energy/pods?from=<span class="s">2026-10-01T00:00:00Z</span>&amp;to=<span class="s">2026-10-02T00:00:00Z</span>&amp;namespace=<span class="s">shop</span>
+
+<span class="c"># One entity</span>
+GET /v1/energy/namespaces/{name}
+GET /v1/energy/deployments/{namespace}/{name}
+GET /v1/energy/nodes/{name}
+
+<span class="c"># Power right now, same scopes</span>
+GET /v1/power/{scope}
+
+<span class="c"># What there is to ask about: what has drawn power in the last day</span>
+GET /v1/namespaces    GET /v1/deployments    GET /v1/pods
+
+<span class="c"># Energy is in energy_microjoules and energy_kwh, power in microwatts. Only</span>
+<span class="c"># CPU energy is measured (measured_components: ["cpu"]). cluster and nodes</span>
+<span class="c"># also report the unattributed host-process and idle energy. A response</span>
+<span class="c"># with status "partial" covers only part of the window, e.g. one reaching</span>
+<span class="c"># back before the cluster began collecting; the missing part is never a zero.</span>
+<span class="c"># Set that start with --set appOwnerApi.dataStart=2026-07-29T14:16:00Z if</span>
+<span class="c"># metrics were collected before the chart was installed.</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">GreenShift Master (operators)</span>
+        </div>
+        <pre class="code"><span class="c"># 1. A pull secret for our images, in the Master namespace</span>
+kubectl create namespace greenshift-master
+kubectl -n greenshift-master create secret docker-registry greenshift-registry-credentials \
+  --docker-server=greenshift-registry.online --docker-username=greenshift \
+  --docker-password=<span class="s">"&lt;provided separately&gt;"</span>
+
+<span class="c"># 2. Install with your four site inputs (described below)</span>
+helm install greenshift-core greenshift/greenshift-core -n greenshift-master \
+  --set global.imageRegistry=greenshift-registry.online \
+  --set <span class="s">'global.imagePullSecrets[0]=greenshift-registry-credentials'</span> \
+  --set global.gatewayPublicUrl=<span class="s">https://gateway.example.com</span> \
+  --set-file ingestionApi.hostCredentialRegistry.content=<span class="s">host-credentials.yaml</span> \
+  --set-file clusterCredentialRegistry.content=<span class="s">cluster-credentials.yaml</span> \
+  --set-file vmMapper.metadata.content=<span class="s">pilot-metadata.yaml</span> \
+  --wait --wait-for-jobs --timeout 15m
+
+<span class="c">#    On a bare cluster with a NodePort Gateway, only the node running the</span>
+<span class="c">#    Gateway pod answers: pin it to the node your public URL names with</span>
+<span class="c">#    --set gateway.nodeSelector."kubernetes\.io/hostname"=&lt;node&gt;</span>
+
+<span class="c"># 3. Verify: database, migrations, service discovery, gateway</span>
+helm test greenshift-core -n greenshift-master</pre>
+      </div>
+
+      <p class="section-lead">
+        <strong>Site inputs.</strong> The Master needs four things only you know.
+        Keep all four files out of version control: they bind credentials to
+        identities. They hold SHA-256 fingerprints, never a token or password,
+        so a leaked file cannot be replayed &mdash; but it still names your hosts
+        and clusters.
+      </p>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">1 &middot; Public Gateway URL</span>
+        </div>
+        <pre class="code"><span class="c"># global.gatewayPublicUrl &mdash; an absolute https:// URL.</span>
+<span class="c"># The address at which customer clusters and hypervisor hosts reach the</span>
+<span class="c"># GreenShift Gateway from outside the Master cluster. Registration hands it</span>
+<span class="c"># to every customer cluster as the base URL for its power queries, so it must</span>
+<span class="c"># be the name on the Gateway's TLS certificate, not an internal address.</span>
+--set global.gatewayPublicUrl=<span class="s">https://gateway.example.com</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">2 &middot; Host credential registry &mdash; host-credentials.yaml</span>
+        </div>
+        <pre class="code"><span class="c"># Which hypervisor host may push power telemetry, and as whom. Read by the</span>
+<span class="c"># Ingestion API; a host may only ever submit data for its own host_id.</span>
+<span class="c"># Reloaded every 30 s when its content changes &mdash; revoke by editing.</span>
+schema_version: <span class="s">"1.0"</span>
+registry_revision: 1                 <span class="c"># increment on every edit</span>
+updated_at: <span class="s">"2026-10-01T09:00:00Z"</span>    <span class="c"># RFC3339 UTC, ends in Z</span>
+credentials:                         <span class="c"># 1 to 1000 entries</span>
+  - credential_id: <span class="s">"cred-host-001-a"</span>  <span class="c"># your label, shown in audit logs</span>
+    credential_type: <span class="s">"host_bearer_token"</span>
+    <span class="c"># lowercase hex SHA-256 of the bearer token alone (no "Bearer ");</span>
+    <span class="c"># 64 characters, unique across the file:  printf %s "$TOKEN" | sha256sum</span>
+    fingerprint_sha256: <span class="s">"&lt;64 hex characters&gt;"</span>
+    host_id: <span class="s">"host-001"</span>               <span class="c"># the host this token belongs to</span>
+    identity_status: <span class="s">"active"</span>        <span class="c"># active | revoked | expired</span>
+    not_after: <span class="s">"2027-10-01T00:00:00Z"</span>
+
+<span class="c"># Rotate a credential by adding the new one as active and marking the old</span>
+<span class="c"># one revoked, both under the same host_id. Never put a token, password,</span>
+<span class="c"># secret or private_key field in this file: the whole file is rejected.</span>
+<span class="c"># Or name a Secret you created (key registry.yaml):</span>
+<span class="c">#   --set ingestionApi.hostCredentialRegistry.existingSecret=&lt;name&gt;</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">3 &middot; Cluster credential registry &mdash; cluster-credentials.yaml</span>
+        </div>
+        <pre class="code"><span class="c"># Which customer cluster may register and query power, and as whom. One</span>
+<span class="c"># entry per customer cluster, binding the SHA-256 fingerprint of that</span>
+<span class="c"># cluster's credential to its Master-allocated cluster ID, which always has</span>
+<span class="c"># the form gsc- followed by 8 lowercase hex characters (gsc-1a2b3c4d).</span>
+<span class="c"># One file serves both the Registration Manager and the Customer Attributor.</span>
+<span class="c"># Fingerprints only, never the credential itself. The exact fields are in</span>
+<span class="c"># the greenshift-core chart README (helm pull greenshift/greenshift-core --untar).</span>
+<span class="c"># Or name a ConfigMap you created (key registry.yaml):</span>
+<span class="c">#   --set clusterCredentialRegistry.existingConfigMap=&lt;name&gt;</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">4 &middot; Pilot VM metadata &mdash; pilot-metadata.yaml</span>
+        </div>
+        <pre class="code"><span class="c"># Which VMs are in scope, and which customer cluster each belongs to. Read</span>
+<span class="c"># by the VM Mapper, which writes power only for the VMs listed here.</span>
+schema_version: <span class="s">"1.0"</span>
+greenshift_cluster_id: <span class="s">"gsc-1a2b3c4d"</span>   <span class="c"># default cluster for every VM below</span>
+metadata_confidence: 0.95              <span class="c"># optional, defaults to 0.95</span>
+vms:                                   <span class="c"># at least one; vm_uuid unique</span>
+  - vm_uuid: <span class="s">"550e8400-e29b-41d4-a716-446655440000"</span>
+    node_uid: <span class="s">"node-uid-1"</span>               <span class="c"># optional Kubernetes node UID</span>
+  - vm_uuid: <span class="s">"6ba7b810-9dad-11d1-80b4-00c04fd430c8"</span>
+    greenshift_cluster_id: <span class="s">"gsc-9f8e7d6c"</span>  <span class="c"># this VM is in another cluster</span>
+
+<span class="c"># Every cluster ID here must already be in the cluster credential registry,</span>
+<span class="c"># or that VM's power is written where no one reads it. This file says</span>
+<span class="c"># nothing about tenants: VM ownership comes from the tenant assignments.</span>
+<span class="c"># Or name a ConfigMap you created (key pilot_metadata.yaml):</span>
+<span class="c">#   --set vmMapper.metadata.existingConfigMap=&lt;name&gt;</span></pre>
+      </div>
+
+      <div class="install-note">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v-4M12 8h.01"/><circle cx="12" cy="12" r="9"/></svg>
+        <div>
+          <strong>No credential lives on this page.</strong> The chart and its
+          install docs are public; the registry password that lets it pull
+          our images is issued and delivered to each partner individually
+          through a secure channel — never published here.
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer lang="en">
+  <div class="wrap">
+    <span>© 2026 GreenShift. Energy attribution for the datacenter and Kubernetes.</span>
+    <nav class="footer-links" aria-label="Site">
+      <a href="/pilot-partners">Pilot partners</a>
+      <a href="/contact">Contact</a>
+      <a href="/impressum" lang="de">Impressum</a>
+      <a href="/datenschutz" lang="de">Datenschutz</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
