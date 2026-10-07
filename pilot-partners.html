@@ -278,6 +278,93 @@ vms:                                   <span class="c"># at least one; vm_uuid u
 <span class="c">#   --set vmMapper.metadata.existingConfigMap=&lt;name&gt;</span></pre>
       </div>
 
+      <p class="section-lead">
+        <strong>Power source.</strong> The Master reads each hypervisor host's
+        power at the PDU that feeds it, splits it across the host's VMs, and
+        hands every customer cluster its own share &mdash; which is what the App
+        Owner Dashboard and API then show. For an Eaton Rack PDU G4 one value
+        chooses the source at install time, and the chart writes the
+        host-to-PDU inventory for you: <code>pdu.source=eaton</code> for a real
+        device, or <code>pdu.source=emulator</code> for a test cluster that has
+        none. Add the values below to the <code>helm install</code> of step 2,
+        or apply them later with <code>helm upgrade --reuse-values</code>.
+        Needs greenshift-core 0.3.0 or later.
+      </p>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">5 &middot; Eaton Rack PDU G4 emulator &mdash; test clusters only</span>
+        </div>
+        <pre class="code"><span class="c"># Test only: the power it serves is synthetic. Never select it on a</span>
+<span class="c"># deployment that serves a customer. It runs one emulated Eaton Rack PDU G4</span>
+<span class="c"># inside the Master cluster, reachable only by the Infra Mapper, and wires</span>
+<span class="c"># the Infra Mapper to it; its passphrase is generated and never shown.</span>
+--set pdu.source=emulator \
+--set <span class="s">'pdu.emulator.hosts[0]=host-001'</span>
+
+<span class="c"># Exactly one host. host-001 must be the GS_HOST_ID of the Host Mapper on the</span>
+<span class="c"># hypervisor that runs your customer-cluster node VMs, with an entry for it</span>
+<span class="c"># in the host credential registry (site input 2).</span>
+
+<span class="c"># Its outlets and their watts, one per PSU of that host. Default 1:410,2:420,</span>
+<span class="c"># i.e. 830 W in all. Write outlet ids without leading zeros. To change them:</span>
+--set eatonEmulator.config.GS_EATON_EMULATOR_OUTLETS=<span class="s">'1:820\,2:840'</span>
+<span class="c"># The emulator restarts and the Infra Mapper logs in again on its next read.</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">6 &middot; A real Eaton Rack PDU G4</span>
+        </div>
+        <pre class="code"><span class="c"># 1. The password of the PDU's REST API account, in a Secret you create.</span>
+<span class="c">#    The chart never takes it as a value. Use a dedicated account: the</span>
+<span class="c">#    Infra Mapper only reads measurements.</span>
+kubectl -n greenshift-master create secret generic eaton-pdu-password \
+  --from-literal=password=<span class="s">'&lt;PDU account password&gt;'</span>
+
+<span class="c"># 2. Point the Infra Mapper at the device</span>
+--set pdu.source=eaton \
+--set pdu.eaton.address=<span class="s">192.0.2.10</span> \
+--set pdu.eaton.username=<span class="s">greenshift</span> \
+--set pdu.eaton.passwordSecret.name=eaton-pdu-password \
+--set <span class="s">'pdu.eaton.hosts[0].hostId=host-001'</span> \
+--set <span class="s">'pdu.eaton.hosts[0].outlets={1,2}'</span>
+
+<span class="c"># address &mdash; the management address, or address:port; no https://, no path.</span>
+<span class="c">#   The Master cluster must be able to reach it over HTTPS.</span>
+<span class="c"># hostId &mdash; as for the emulator: the GS_HOST_ID of that host's Host Mapper.</span>
+<span class="c"># outlets &mdash; the outlets feeding that host's PSUs, by the number in the</span>
+<span class="c">#   PDU's REST path .../powerDistributions/1/outlets/&lt;n&gt; (the web UI shows</span>
+<span class="c">#   physical names such as A1). An outlet feeds one host only. More hosts:</span>
+<span class="c">#   --set 'pdu.eaton.hosts[1].hostId=host-002' --set 'pdu.eaton.hosts[1].outlets={3,4}'</span>
+
+<span class="c"># TLS is verified. A G4 ships with a self-signed certificate: install a</span>
+<span class="c"># CA-signed one on the PDU, or, where you cannot, --set pdu.eaton.tlsVerify=false.</span>
+<span class="c"># Several PDUs: write the inventory yourself (fields in the chart README) and</span>
+<span class="c"># pass it with --set-file infraMapper.inventory.content=inventory.yaml.</span></pre>
+      </div>
+
+      <div class="install-panel">
+        <div class="install-tabs">
+          <span class="install-tab active">7 &middot; Check that the power reaches your figures</span>
+        </div>
+        <pre class="code"><span class="c"># Master: one window per host every 10 s, read from the PDU or the emulator</span>
+kubectl -n greenshift-master logs deploy/greenshift-infra-mapper -c infra-mapper \
+  | grep <span class="s">'Closed window'</span>
+<span class="c">#   Closed window for host-001: status=valid, avg_power_microwatts=830124000 ...</span>
+
+<span class="c"># Hypervisor: the Host Mapper reports that same host_id, with Scaphandre on</span>
+<span class="c"># 127.0.0.1:9999. Without it the host's power is not split across its VMs and</span>
+<span class="c"># no customer cluster sees any of it.</span>
+
+<span class="c"># Customer cluster, a minute or two later: power per node, above zero, in the</span>
+<span class="c"># App Owner API and in the Dashboard's live power.</span>
+curl -H <span class="s">'Authorization: Bearer &lt;token&gt;'</span> http://localhost:8080/v1/power/nodes
+
+<span class="c"># With the emulator, raise its outlet watts (panel 5) with helm upgrade</span>
+<span class="c"># --reuse-values: the figures rise within a few minutes.</span></pre>
+      </div>
+
       <div class="install-note">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v-4M12 8h.01"/><circle cx="12" cy="12" r="9"/></svg>
         <div>
